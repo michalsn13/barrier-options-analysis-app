@@ -1,6 +1,6 @@
 shinyServer(function(input,output){
   observeEvent(input$divtype,  {
-    updateSliderInput(session = getDefaultReactiveDomain(),inputId = "div",max=(if (input$divtype=="z³"){200}else{30}),value=(if (input$divtype=="z³"){50}else{10}),step=(if (input$divtype=="z³"){10}else{5}),label=(if (input$divtype=="z³"){"Dywidenda (z³):"}else{"Dywidenda (%):"}))
+    updateSliderInput(session = getDefaultReactiveDomain(),inputId = "div",max=(if (input$divtype=="PLN"){200}else{30}),value=(if (input$divtype=="PLN"){50}else{10}),step=(if (input$divtype=="PLN"){10}else{5}),label=(if (input$divtype=="PLN"){"Dividend (PLN):"}else{"Dividend yield (%):"}))
   })
   observeEvent(input$type,  {
     updateSliderInput(session = getDefaultReactiveDomain(),inputId = "barrier", value=(if (input$type=="put"){1900}else{2400}))
@@ -16,13 +16,13 @@ shinyServer(function(input,output){
   })
   observeEvent(input$choices, {
     choice = input$choices
-    if(choice == "Korzystne wykonania")
+    if(choice == "Early exercises")
     {
       updateSliderInput(session = getDefaultReactiveDomain(), inputId = "continent", value="A")
     }
   })
   output$plot <- renderPlot({
-    if (input$divtype=="z³"){
+    if (input$divtype=="PLN"){
       divtype=F
     }
     else{
@@ -56,15 +56,15 @@ shinyServer(function(input,output){
       geom_tile(data=melted_A_after,aes(x=t,y=S,fill=value))+
       theme_light()+
       geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartoœæ aktywa bazowego (z³)",fill="Wartoœæ opcji (z³)")+
+      labs(x="Time (years)",y="Underlying price (PLN)",fill="Option price (PLN)")+
       scale_x_continuous(breaks=seq(0,input$Time,0.25))+
       scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
       theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20))+
       scale_fill_viridis_c(breaks=round(seq(0,max(melted_A_after$value,melted_A_after$value),max(melted_A_after$value,melted_A_after$value)/5),2),option = "inferno")+
-      ggtitle(paste("Wartoœci ",if (american){"amerykañskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"z³,B=",sprintf("%.2f",input$barrier),"z³ i d=",input$div,(if (divtype){"%"}else{"z³"})))
+      ggtitle(paste("Values of",if (american){"american"}else{"european"}," knock-and-out ",if (call){"call"}else{"put"}," with K=",sprintf("%.2f",input$strike),"PLN,B=",sprintf("%.2f",input$barrier),"PLN and d=",input$div,(if (divtype){"%"}else{"PLN"})))
   })
   output$plot2 <- renderPlot({
-    if (input$divtype=="z³"){
+    if (input$divtype=="PLN"){
       divtype=F
     }
     else{
@@ -98,15 +98,15 @@ shinyServer(function(input,output){
       geom_tile(data=melted_A_after,aes(x=t,y=S,fill=value))+
       theme_light()+
       geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartoœæ aktywa bazowego (z³)",fill="Delta opcji")+
+      labs(x="Time (years)",y="Underlying price (PLN)",fill="Delta")+
       scale_x_continuous(breaks=seq(0,input$Time,0.25))+
       scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
       theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20),legend.text=element_text(size=9))+
       scale_fill_viridis_c(breaks=c(round(seq(min(melted_A_after$value,melted_A_after$value),max(melted_A_after$value,melted_A_after$value),(max(melted_A_after$value,melted_A_after$value)-min(melted_A_after$value,melted_A_after$value))/5),2)))+
-      ggtitle(paste("Delta ",if (american){"amerykañskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"z³,B=",sprintf("%.2f",input$barrier),"z³ i d=",input$div,(if (divtype){"%"}else{"z³"})))
+      ggtitle(paste("Delta of ",if (american){"american"}else{"european"}," knock-and-out ",if (call){"call"}else{"put"}," with K=",sprintf("%.2f",input$strike),"PLN,B=",sprintf("%.2f",input$barrier),"PLN and d=",input$div,(if (divtype){"%"}else{"PLN"})))
   })
   output$plot3 <- renderPlot({
-    if (input$divtype=="z³"){
+    if (input$divtype=="PLN"){
       divtype=F
     }
     else{
@@ -142,14 +142,14 @@ shinyServer(function(input,output){
       geom_tile(data=melted_A_after,aes(x=t,y=S,fill=factor(value)))+
       theme_light()+
       geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartoœæ aktywa bazowego (z³)",fill="Przyjêta zmiennoœæ")+
+      labs(x="Time (years)",y="Underlying price (PLN)",fill="Assumed volatility")+
       scale_x_continuous(breaks=seq(0,input$Time,0.25))+
       scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
       theme(plot.title=element_text(hjust=0.5,size=15),text = element_text(size=20),legend.text=element_text(size=12))+
-      ggtitle(paste("Zmiennoœæ w Worst Case Scenario ",if (american){"amerykañskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"z³,B=",sprintf("%.2f",input$barrier),"z³ i d=",input$div,(if (divtype){"%"}else{"z³"})))
+      ggtitle(paste("Worst Case Scenario volatility of ",if (american){"american"}else{"european"}," knock-and-out ",if (call){"call"}else{"put"}," with K=",sprintf("%.2f",input$strike),"PLN,B=",sprintf("%.2f",input$barrier),"PLN and d=",input$div,(if (divtype){"%"}else{"PLN"})))
   })
   output$plot4 <- renderPlot({
-    if (input$divtype=="z³"){
+    if (input$divtype=="PLN"){
       divtype=F
     }
     else{
@@ -185,12 +185,12 @@ shinyServer(function(input,output){
       geom_tile(data=melted_A_after,aes(x=t,y=S,fill=factor(value)))+
       theme_light()+
       geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartoœæ aktywa bazowego (z³)",fill="Czy wykonaæ?")+
+      labs(x="Time (years)",y="Underlying price (PLN)",fill="Exercise early?")+
       scale_x_continuous(breaks=seq(0,input$Time,0.25))+
       scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
       scale_fill_manual(values  =c("#1f08b0", "#ff9400"))+
       theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20),legend.text=element_text(size=9))+
-      ggtitle(paste("Korzystne wykonanie ",if (american){"amerykañskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"z³,B=",sprintf("%.2f",input$barrier),"z³ i d=",input$div,(if (divtype){"%"}else{"z³"})))
+      ggtitle(paste("Possible early exercises of ",if (american){"american"}else{"european"}," knock-and-out ",if (call){"call"}else{"put"}," with K=",sprintf("%.2f",input$strike),"PLN,B=",sprintf("%.2f",input$barrier),"PLN and d=",input$div,(if (divtype){"%"}else{"PLN"})))
   })
 })
 
