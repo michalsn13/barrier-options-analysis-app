@@ -1,196 +1,52 @@
-shinyServer(function(input,output){
-  observeEvent(input$divtype,  {
-    updateSliderInput(session = getDefaultReactiveDomain(),inputId = "div",max=(if (input$divtype=="zł"){200}else{30}),value=(if (input$divtype=="zł"){50}else{10}),step=(if (input$divtype=="zł"){10}else{5}),label=(if (input$divtype=="zł"){"Dywidenda (zł):"}else{"Dywidenda (%):"}))
-  })
-  observeEvent(input$type,  {
-    updateSliderInput(session = getDefaultReactiveDomain(),inputId = "barrier", value=(if (input$type=="put"){1900}else{2400}))
-  })
-  observeEvent(input$type,  {
-    updateSliderInput(session = getDefaultReactiveDomain(), inputId = "limit", max=(if (input$type=="call"){input$barrier}),min=(if (input$type=="call"){0}),value=(if (input$type=="call"){0}))
-  })
-  observeEvent(input$type,  {
-    updateSliderInput(session = getDefaultReactiveDomain(), inputId = "limit", min=(if (input$type=="put"){input$barrier}),max=(if (input$type=="put"){3500}),value=(if (input$type=="put"){3500}))
-  })
-  observeEvent(input$sigma_l,  {
-    updateSliderInput(session = getDefaultReactiveDomain(), inputId = "sigma_p", min=input$sigma_l)
-  })
-  observeEvent(input$choices, {
-    choice = input$choices
-    if(choice == "Korzystne wykonania")
-    {
-      updateSliderInput(session = getDefaultReactiveDomain(), inputId = "continent", value="A")
-    }
-  })
-  output$plot <- renderPlot({
-    if (input$divtype=="zł"){
-      divtype=F
-    }
-    else{
-      divtype=T
-    }
-    if (input$continent=="A"){
-      american=T
-    }
-    else{
-      american=F
-    }
-    if (input$type=="call"){
-      call=T
-      dt=1/36000
-    }
-    else{
-      call=F
-      dt=1/84000
-    }
-    A <- Finite_Difference(call=call,strike=input$strike,Time=input$Time,barrier=input$barrier,r=input$r, div=input$div/(if (divtype){100}else{1}),sigma=c(input$sigma_l,input$sigma_p),american=american,dt=dt,percentageDiv=divtype)
-    melted_A_before =melt(as.matrix(A$Krata_Przed),varnames = c("S","t"))
-    melted_A_before=melted_A_before[(if (call){melted_A_before$S<input$barrier & melted_A_before$S>input$limit}else{melted_A_before$S<input$limit & melted_A_before$S>input$barrier}),]
-    melted_A_after =melt(as.matrix(A$Krata_Po),varnames = c("S","t"))
-    melted_A_after=melted_A_after[(if (call){melted_A_after$S<input$barrier & melted_A_after$S>input$limit}else{melted_A_after$S<input$limit & melted_A_after$S>input$barrier}),]
-    melted_A_before=melted_A_before[melted_A_before$t %in% unique(melted_A_before$t)[seq(1,length(unique(melted_A_before$t)),if (call){18}else{84})],]
-    melted_A_after=melted_A_after[melted_A_after$t %in% unique(melted_A_after$t)[seq(1,length(unique(melted_A_after$t)),if (call){18}else{84})],]
-    melted_A=rbind(melted_A_after,melted_A_before)
-    line=data.frame(x=c(0,input$Time),y=c(input$strike,input$strike))
-    ggplot(melted_A,aes(x=t,y=S))+
-      geom_tile(data=melted_A_before,aes(x=t,y=S,fill=value))+
-      geom_tile(data=melted_A_after,aes(x=t,y=S,fill=value))+
-      theme_light()+
-      geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartość aktywa bazowego (zł)",fill="Wartość opcji (zł)")+
-      scale_x_continuous(breaks=seq(0,input$Time,0.25))+
-      scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
-      theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20))+
-      scale_fill_viridis_c(breaks=round(seq(0,max(melted_A_after$value,melted_A_after$value),max(melted_A_after$value,melted_A_after$value)/5),2),option = "inferno")+
-      ggtitle(paste("Wartości ",if (american){"amerykańskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"zł,B=",sprintf("%.2f",input$barrier),"zł i d=",input$div,(if (divtype){"%"}else{"zł"})))
-  })
-  output$plot2 <- renderPlot({
-    if (input$divtype=="zł"){
-      divtype=F
-    }
-    else{
-      divtype=T
-    }
-    if (input$continent=="A"){
-      american=T
-    }
-    else{
-      american=F
-    }
-    if (input$type=="call"){
-      call=T
-      dt=1/36000
-    }
-    else{
-      call=F
-      dt=1/84000
-    }
-    A <- Finite_Difference(call=call,strike=input$strike,Time=input$Time,barrier=input$barrier,r=input$r, div=input$div/(if (divtype){100}else{1}),sigma=c(input$sigma_l,input$sigma_p),american=american,dt=dt,percentageDiv=divtype)
-    melted_A_before =melt(as.matrix(A$Delta_Przed),varnames = c("S","t"))
-    melted_A_before=melted_A_before[(if (call){melted_A_before$S<input$barrier & melted_A_before$S>input$limit}else{melted_A_before$S<input$limit & melted_A_before$S>input$barrier}),]
-    melted_A_after =melt(as.matrix(A$Delta_Po),varnames = c("S","t"))
-    melted_A_after=melted_A_after[(if (call){melted_A_after$S<input$barrier & melted_A_after$S>input$limit}else{melted_A_after$S<input$limit & melted_A_after$S>input$barrier}),]
-    melted_A_before=melted_A_before[melted_A_before$t %in% unique(melted_A_before$t)[seq(1,length(unique(melted_A_before$t)),if (call){18}else{84})],]
-    melted_A_after=melted_A_after[melted_A_after$t %in% unique(melted_A_after$t)[seq(1,length(unique(melted_A_after$t)),if (call){18}else{84})],]
-    melted_A=rbind(melted_A_after,melted_A_before)
-    line=data.frame(x=c(0,input$Time),y=c(input$strike,input$strike))
-    ggplot(melted_A,aes(x=t,y=S))+
-      geom_tile(data=melted_A_before,aes(x=t,y=S,fill=value))+
-      geom_tile(data=melted_A_after,aes(x=t,y=S,fill=value))+
-      theme_light()+
-      geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartość aktywa bazowego (zł)",fill="Delta opcji")+
-      scale_x_continuous(breaks=seq(0,input$Time,0.25))+
-      scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
-      theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20),legend.text=element_text(size=9))+
-      scale_fill_viridis_c(breaks=c(round(seq(min(melted_A_after$value,melted_A_after$value),max(melted_A_after$value,melted_A_after$value),(max(melted_A_after$value,melted_A_after$value)-min(melted_A_after$value,melted_A_after$value))/5),2)))+
-      ggtitle(paste("Delta ",if (american){"amerykańskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"zł,B=",sprintf("%.2f",input$barrier),"zł i d=",input$div,(if (divtype){"%"}else{"zł"})))
-  })
-  output$plot3 <- renderPlot({
-    if (input$divtype=="zł"){
-      divtype=F
-    }
-    else{
-      divtype=T
-    }
-    if (input$continent=="A"){
-      american=T
-    }
-    else{
-      american=F
-    }
-    if (input$type=="call"){
-      call=T
-      dt=1/36000
-    }
-    else{
-      call=F
-      dt=1/84000
-    }
-    A <- Finite_Difference(call=call,strike=input$strike,Time=input$Time,barrier=input$barrier,r=input$r, div=input$div/(if (divtype){100}else{1}),sigma=c(input$sigma_l,input$sigma_p),american=american,dt=dt,percentageDiv=divtype)
-    melted_A_before =melt(as.matrix(A$Gamma_Przed),varnames = c("S","t"))
-    melted_A_before=melted_A_before[(if (call){melted_A_before$S<input$barrier & melted_A_before$S>input$limit}else{melted_A_before$S<input$limit & melted_A_before$S>input$barrier}),]
-    melted_A_after =melt(as.matrix(A$Gamma_Po),varnames = c("S","t"))
-    melted_A_after=melted_A_after[(if (call){melted_A_after$S<input$barrier & melted_A_after$S>input$limit}else{melted_A_after$S<input$limit & melted_A_after$S>input$barrier}),]
-    melted_A_before=melted_A_before[melted_A_before$t %in% unique(melted_A_before$t)[seq(1,length(unique(melted_A_before$t)),if (call){18}else{84})],]
-    melted_A_after=melted_A_after[melted_A_after$t %in% unique(melted_A_after$t)[seq(1,length(unique(melted_A_after$t)),if (call){18}else{84})],]
-    melted_A_before$value=input$sigma_p*(melted_A_before$value>=0)+input$sigma_l*(melted_A_before$value<0)
-    melted_A_after$value=input$sigma_p*(melted_A_after$value>=0)+input$sigma_l*(melted_A_after$value<0)
-    melted_A=rbind(melted_A_after,melted_A_before)
-    line=data.frame(x=c(0,input$Time),y=c(input$strike,input$strike))
-    ggplot(melted_A,aes(x=t,y=S))+
-      geom_tile(data=melted_A_before,aes(x=t,y=S,fill=factor(value)))+
-      geom_tile(data=melted_A_after,aes(x=t,y=S,fill=factor(value)))+
-      theme_light()+
-      geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartość aktywa bazowego (zł)",fill="Przyjęta zmienność")+
-      scale_x_continuous(breaks=seq(0,input$Time,0.25))+
-      scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
-      theme(plot.title=element_text(hjust=0.5,size=15),text = element_text(size=20),legend.text=element_text(size=12))+
-      ggtitle(paste("Zmienność w Worst Case Scenario ",if (american){"amerykańskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"zł,B=",sprintf("%.2f",input$barrier),"zł i d=",input$div,(if (divtype){"%"}else{"zł"})))
-  })
-  output$plot4 <- renderPlot({
-    if (input$divtype=="zł"){
-      divtype=F
-    }
-    else{
-      divtype=T
-    }
-    if (input$continent=="A"){
-      american=T
-    }
-    else{
-      american=F
-    }
-    if (input$type=="call"){
-      call=T
-      dt=1/36000
-    }
-    else{
-      call=F
-      dt=1/84000
-    }
-    A <- Finite_Difference(call=call,strike=input$strike,Time=input$Time,barrier=input$barrier,r=input$r, div=input$div/(if (divtype){100}else{1}),sigma=c(input$sigma_l,input$sigma_p),american=american,dt=dt,percentageDiv=divtype)
-    melted_A_before =melt(as.matrix(A$American_Wykonanie_Przed),varnames = c("S","t"))
-    melted_A_before=melted_A_before[(if (call){melted_A_before$S<input$barrier & melted_A_before$S>input$limit}else{melted_A_before$S<input$limit & melted_A_before$S>input$barrier}),]
-    melted_A_after =melt(as.matrix(A$American_Wykonanie_Po),varnames = c("S","t"))
-    melted_A_after=melted_A_after[(if (call){melted_A_after$S<input$barrier & melted_A_after$S>input$limit}else{melted_A_after$S<input$limit & melted_A_after$S>input$barrier}),]
-    melted_A_before=melted_A_before[melted_A_before$t %in% unique(melted_A_before$t)[seq(1,length(unique(melted_A_before$t)),if (call){18}else{84})],]
-    melted_A_after=melted_A_after[melted_A_after$t %in% unique(melted_A_after$t)[seq(1,length(unique(melted_A_after$t)),if (call){18}else{84})],]
-    melted_A_before$value=as.logical(melted_A_before$value)
-    melted_A_after$value=as.logical(melted_A_after$value)
-    melted_A=rbind(melted_A_after,melted_A_before)
-    line=data.frame(x=c(0,input$Time),y=c(input$strike,input$strike))
-    ggplot(melted_A,aes(x=t,y=S))+
-      geom_tile(data=melted_A_before,aes(x=t,y=S,fill=factor(value)))+
-      geom_tile(data=melted_A_after,aes(x=t,y=S,fill=factor(value)))+
-      theme_light()+
-      geom_line(data=line,aes(x=x,y=y),linetype="dotted", color="red", size=1)+
-      labs(x="Czas (lata)",y="Wartość aktywa bazowego (zł)",fill="Czy wykonać?")+
-      scale_x_continuous(breaks=seq(0,input$Time,0.25))+
-      scale_y_continuous(breaks=if (call){seq(input$limit,input$barrier,(input$barrier-input$limit)/10)}else{seq(input$barrier,input$limit,(input$limit-input$barrier)/10)})+
-      scale_fill_manual(values  =c("#1f08b0", "#ff9400"))+
-      theme(plot.title=element_text(hjust=0.5,size=20),text = element_text(size=20),legend.text=element_text(size=9))+
-      ggtitle(paste("Korzystne wykonanie ",if (american){"amerykańskiego"}else{"europejskiego"}," knock-and-out ",if (call){"call"}else{"put"}," o K=",sprintf("%.2f",input$strike),"zł,B=",sprintf("%.2f",input$barrier),"zł i d=",input$div,(if (divtype){"%"}else{"zł"})))
-  })
-})
-
+shinyUI(fluidPage(
+  headerPanel(title="Finite difference pricing model"),
+      fluidRow(
+    column(1, offset = 0,
+           div(style = "font-size: 11px;
+                   padding: 10px 0px;
+                   margin:10%;
+                   width:200%",
+               fluidRow(
+                 radioButtons('divtype','Dividend type:',choices=c("%","PLN"),selected="%",inline=T),
+                 radioButtons("continent","Option type:",choices=c("E","A"),selected="E",inline=T),
+                 radioButtons("type","Option type:",choices=c("call","put"),selected="call",inline=T)
+               ),
+               fluidRow(
+                 sliderInput("strike","Strike price:",50,3000,step = 50,value=2150,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("Time","Expiration time:",0.25,2,step = 0.25,value=0.75,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("barrier","Barrier:",50,3000,step = 50,value=2400,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("r","Risk free rate:",0,0.2,step = 0.001,value=0.03,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("div","Dividend yield (%):",0,30,step = 5,value=10,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("sigma_l","Volatility: lower threshold:",0,0.5,step = 0.05,value=0.15,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("sigma_p","Volatility: upper threshold:",0.15,0.5,step = 0.05,value=0.25,width='85%')
+               ),
+               fluidRow(
+                 sliderInput("limit","Plot limit",0,3500,step = 100,value=0,width='85%')
+               )
+           )
+    ),
+    mainPanel(
+      tabsetPanel(id = 'choices',type="tabs",
+                  tabPanel("Price",column(10,offset=1,
+      plotOutput("plot",width = "155%",height="600px"))),
+                  tabPanel("Delta",column(10,offset=1,
+      plotOutput("plot2",width = "155%",height="600px"))),
+                  tabPanel("Assumed volatility",column(10,offset=1,
+      plotOutput("plot3",width = "155%",height="600px"))),
+                  tabPanel("Early exercises",column(10,offset=1,
+      plotOutput("plot4",width = "155%",height="600px")))
+    )))
+  )
+)
