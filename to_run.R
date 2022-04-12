@@ -3,25 +3,37 @@ library('reshape2')
 library('ggplot2')
 library('shiny')
 #Finite difference method function
+#dt-size of interval for time grid
+#dS-size of interval for S (underlying price) grid
+#r-free risk rate of return (f.e. return from annual goverment bonds)
+#sigma-volatility (annual one- can be a interval, worst scenario is then picked at every point)
+#strike-strike price of an option
+#barrier-barrier of an option
+#call-type of an option (TRUE-call, FALSE-put)
+#upperlimit-upperlimit of S for put option
+#div-dividend rate (always exactly in the middle of option's period)
+#Time-time to expiration date (in years)
+#american-type of an option (TRUE-european,FALSE-american)
+#percentagediv-type of dividend (TRUE-percentage, FALSE-PLN)
 Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), strike=2150, barrier=2400, call=TRUE,upperlimit=6600, div=0.1,Time=0.75, american=FALSE, percentageDiv=TRUE){
-  #wymiary po t
+  #defining the X axis size (time intervals)
   cols <- round(Time/dt + 1)
   div_day <- round((Time/dt)/2)
   sigma_vec <- sigma
   
-  if (call==TRUE){ # Opcja Call
+  if (call==TRUE){ # For call option
     if(percentageDiv==TRUE){
-      rows <- floor(barrier/(dS*(1-div))+1) # Wymiary po S
+      rows <- floor(barrier/(dS*(1-div))+1) #defining the Y axis size (S price intervals)
     }
     else{
       rows <- floor(barrier/dS +1)
     }
-    M <- matrix(0, rows, cols) # Macierz
+    M <- matrix(0, rows, cols) # Matrix for option values (representation of the grid rectangle)
     if(percentageDiv==TRUE){
-      S <- seq(barrier,0,-dS*(1-div)) # Zdefiniowanie S od bariery do zera
+      S <- seq(barrier,0,-dS*(1-div)) # Defining S from 0 to a barrier (we assume that for call option the barrier is above strike price K)
     }
     else{
-      S <- seq(barrier-div,0-div,-dS) # Zdefiniowanie S od bariery do zera
+      S <- seq(barrier-div,0-div,-dS)
       for(i in 1:length(S)){
         if(S[i]<0){
           S[i] <- 0
@@ -29,32 +41,27 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
       }
     }
     
-    S2 <- S  # Dla zapami?tania jaki by? S po dywidendzie
-    M[2:rows,cols] <- pmax((S-strike),0)[2:rows] # Wpisanie Payoff?w w ostatniej kolumnie
+    S2 <- S  #saving S after the dividend happens
+    M[2:rows,cols] <- pmax((S-strike),0)[2:rows] # Prices on the right border (payoffs of an option)
     
-    #Macierze do pami?tania pod analizy
-    DM <- matrix(0, rows, cols) #Delta
-    DM[,cols] <- (as.numeric(M[,cols] > 0)) #Ostatnia kolumna Delty
-    GM <- matrix(0, rows, cols) #Gamma
+    DM <- matrix(0, rows, cols) #Delta (first derivative of an option)
+    DM[,cols] <- (as.numeric(M[,cols] > 0))
+    GM <- matrix(0, rows, cols) #Gamma (second derivative of an option)
     if(american){
       AM <- matrix(0, rows, cols)
       AM[,cols] <- DM[,cols]
     }
     
-    # For od ko?ca do dnia dywidendy
     for(k in cols:(div_day+1)){ #mo?e div_day
       
-      #Liczenie Delty i Gammy dla wszystkich wierszy
+      #Formulas for derivatives approximations
       Delta <- (M[1:(rows-2),k]-M[3:rows,k])/(2*dS)
       Gamma <- (M[1:(rows-2),k]-2*M[2:(rows-1),k]+M[3:rows,k])/(dS)^2
       
       DM[2:(rows-1),k-1] <- Delta
       GM[2:(rows-1),k-1] <- Gamma
       
-      #Liczymy ca?? kolumn? naraz bez najni?szej (Poziom zera) i najwy?szej (Bariera) warto?ci S
-      
-      #Rozr??nienie na worst case scenario sigma:
-      #1. vt = vector warto?ci true, gdzie Gamma >= 0, czyli we?niemy najwi?ksz? sigm?
+      #Calculatiing where second derivatives are over 0 (used for picking worse volatility if it's an interval)
       vt <- (Gamma >= 0) 
       sigma <- sigma_vec[2]
       if(american){
@@ -63,7 +70,7 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
         M[2:(rows-1),k-1][vt] <- M[2:(rows-1),k][vt]+dt*(0.5*sigma^2*S[2:(rows-1)][vt]^2*Gamma[vt]+r*S[2:(rows-1)][vt]*Delta[vt]-M[2:(rows-1),k][vt]*r)    
       }
       
-      #2. vf = vector warto?ci true, gdzie Gamma < 0, czyli najmniejsza sigma
+
       vf <- (Gamma < 0)
       sigma <- sigma_vec[1]
       if(american){
@@ -73,14 +80,12 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
       }
     }
     
-    #Sprawdzamy, gdzie warto by?o wykona? ameryka?sk?
+    #Checking early exercises of american option
     if(american){
       AM[2:(rows-1),div_day:(cols-1)] <- as.numeric(M[2:(rows-1),div_day:(cols-1)] == (S[2:(rows-1)]-strike))
     }
     
-    # Nast?puje dzie? dywidendy
-    
-    # Zmieniamy wi?c wektor S (mamy tylko procentowo, je?eli kwotowo to jaki? if i siema, ech nie takie siema)
+
     if(percentageDiv==TRUE){
       S <- seq(barrier*(1/(1-div)),0,-dS)
     }
@@ -88,22 +93,16 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
       S <- seq(barrier,0,-dS)
     }
     
-    # Teraz b?dzie od przeskalowanej bariery, dS'ami w d?? ile si? da
     
-    # Dla zapami?tania jaki by? S przed dywidend?
     S1 <- S
-    
-    # Znajdujemy od kt?rego wiersza, wiersze przeskoczy?y nad barier?. NewTop = wiersz odgrywaj?cy teraz rol? bariery (pierwszy nad barier?)
+    #divi day, grid has to be rescaled
     NewTop <- tail(which(S>=barrier),1)
-    # Zerujemy wszystkie nad barier?
     M[1:NewTop,div_day] <- 0
     
-    # For od dnia dywidendy do pocz?tku
     for(k in div_day:2){ #mo?e div_day+1
       Delta <- (M[NewTop:(rows-2),k]-M[(NewTop+2):rows,k])/(2*dS)
       Gamma <- (M[NewTop:(rows-2),k]-2*M[(NewTop+1):(rows-1),k]+M[(NewTop+2):rows,k])/(dS)^2
       
-      #Zapamietanie dla analiz
       DM[(NewTop+1):(rows-1),k-1] <- Delta
       GM[(NewTop+1):(rows-1),k-1] <- Gamma
       
@@ -128,28 +127,25 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
     }
   }
   
-  else{ # Opcja Put
-    # Wiemy, ?e przed dywidend?, po lewej (je?li dS jest ma?e) pojawi? si? niezerowe wiersze.
-    # add_rows liczy ile ich ma si? pojawi? + 1, aby doda? jeszcze pierwszy wiersz pod barier?
+  else{ #same for put option
     if(percentageDiv==TRUE){
       add_rows <- floor((barrier/(1-div)-barrier)/dS)+1
-      rows <- floor((upperlimit-barrier)/(dS*(1-div))) +1 + add_rows # Wymiary po S
+      rows <- floor((upperlimit-barrier)/(dS*(1-div))) +1 + add_rows 
     }
     else{
       add_rows <- floor(div/dS)+1
-      rows <- floor((upperlimit-barrier)/dS) +1 + add_rows # Wymiary po S
+      rows <- floor((upperlimit-barrier)/dS) +1 + add_rows
     }
-    M <- matrix(0, rows, cols) # Macierz 
+    M <- matrix(0, rows, cols)
     if(percentageDiv==TRUE){
-      S <- seq(barrier,upperlimit,dS*(1-div)) # Zdefiniowanie S od bariery do limitu g?rnego (jest 6600, bo to trzykrotno?? ceny spot z 1.1.2020)
+      S <- seq(barrier,upperlimit,dS*(1-div))
     }
     else{
       S <- seq(barrier,upperlimit,dS)
     }
     S <- rev(S)
-    M[1:(rows-add_rows-1),cols] <- pmax((strike-S),0)[1:(rows-add_rows-1)] # Przypisanie Payoff?w do ostatniej kolumny
+    M[1:(rows-add_rows-1),cols] <- pmax((strike-S),0)[1:(rows-add_rows-1)]
     
-    # Dla zapami?tania jaki by? S po dywidendzie
     if(percentageDiv==TRUE){
       S2 <- c(S,seq(from=barrier-dS*(1-div),by=-dS*(1-div), length.out = add_rows))
     }
@@ -158,7 +154,6 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
     }
     
     
-    #Macierze do pamietania Delt i Gamm'm i r?cznie przypisanie Delt do ostatniej kolumny (Gammy tam s? zero i tak)
     DM <- matrix(0, rows, cols)
     DM[,cols] <- (as.numeric(M[,cols] > 0))
     GM <- matrix(0, rows, cols)
@@ -197,18 +192,17 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
     }
     
     if(percentageDiv==TRUE){
-      S <- seq(barrier*(1/(1-div)),upperlimit*(1/(1-div)),dS) #je?eli kwotowo to jakis if i siema
+      S <- seq(barrier*(1/(1-div)),upperlimit*(1/(1-div)),dS) 
     }
     else{
-      S <- seq(barrier+div,upperlimit+div,dS) #je?eli kwotowo to jakis if i siema
+      S <- seq(barrier+div,upperlimit+div,dS) 
     }
     S <- c(S[1:add_rows]-add_rows*dS, S)
     S <- rev(S)
     
-    # Dla zapami?tania jaki by? S przed dywidend?
     S1 <- S
     
-    for(k in div_day:2){ #mo?e div_day+1
+    for(k in div_day:2){ 
       Delta <- (M[1:(rows-2),k]-M[3:rows,k])/(2*dS)
       Gamma <- (M[1:(rows-2),k]-2*M[2:(rows-1),k]+M[3:rows,k])/(dS)^2
       
@@ -237,7 +231,7 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
     }
   }
   
-  #Przygotowanie odpowiedzi
+  #Preparing the returns
   if(american){
     L<- list(M,M[,1:div_day],M[,(div_day+1):cols],S1,S2,seq(0,Time,dt),DM[,1:div_day],DM[,(div_day+1):cols],GM[,1:div_day],GM[,(div_day+1):cols], AM[,1:div_day],AM[,(div_day+1):cols])
     names(L) <- c('Krata','Krata_Przed','Krata_Po','S_Przed','S_Po','dt_Wektor','Delta_Przed','Delta_Po','Gamma_Przed','Gamma_Po', 'American_Wykonanie_Przed','American_Wykonanie_Po')  
@@ -251,7 +245,6 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
     L<- list(M,M[,1:div_day],M[,(div_day+1):cols],S1,S2,seq(0,Time,dt),DM[,1:div_day],DM[,(div_day+1):cols],GM[,1:div_day],GM[,(div_day+1):cols])
     names(L) <- c('Krata','Krata_Przed','Krata_Po','S_Przed','S_Po','dt_Wektor','Delta_Przed','Delta_Po','Gamma_Przed','Gamma_Po')
   }
-  #Nazwy Wierszy i Kolumn w odpowiedziach
   colnames(L$Krata_Przed) <- L$dt_Wektor[1:div_day]
   rownames(L$Krata_Przed) <- L$S_Przed
   
@@ -270,6 +263,6 @@ Finite_Difference <- function(dt=1/50000, dS=10, r=0.03, sigma=c(0.15,0.25), str
   colnames(L$Gamma_Po) <- L$dt_Wektor[(div_day+1):cols]
   rownames(L$Gamma_Po) <- L$S_Po
   
-  return(L)
+  return(L) #returning all values, values before div and after separately, vector of all underlying prices before and after div, same for time stamps, first derivatives (Deltas) and second ones (Gammas)
 }
 
