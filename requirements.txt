@@ -1,0 +1,6 @@
+System: R v.4.1.3; RStudio Desktop
+Libraries:
+> library('shiny')
+> library('ggplot2')
+> library('reshape2')
+It's better to install them with all dependencies.
