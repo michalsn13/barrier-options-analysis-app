@@ -22,6 +22,6 @@ The whole project was created in R, it's main part relies heavily on the *shiny*
 3. Pick one of the apps.
 4. Open both *server.R* and *ui.R* and run the app from any of those files.
 6. Wait for the initial plot to load.
-7. Explore.\
+7. Explore.
 
 *Note: feel free to contact me if anything is problematic- both from the programming perspective and a theoretical one.*
